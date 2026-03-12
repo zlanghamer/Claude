@@ -1,5 +1,12 @@
 # Claude Code Global Rules
 
+## Communication Style
+
+1. **Keep explanations short** — No more than 4 sentences when explaining what was done or why.
+2. **Summarize outputs** — Give a brief summary of results, not a full breakdown of every detail.
+3. **Use plain language** — Avoid technical jargon. Write as if explaining to someone who is not a developer.
+4. **Lead with the result** — Say what happened first, then explain only if needed.
+
 ## Model Usage by Project State
 
 Use the appropriate model based on the current phase of the work:
