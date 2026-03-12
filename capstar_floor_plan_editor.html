@@ -174,6 +174,8 @@
   <button class="tb-btn" onclick="addRoom()">+ Room</button>
   <button class="tb-btn danger" onclick="deleteSelected()">Delete</button>
   <div class="tb-spacer"></div>
+  <button class="tb-btn" id="btn-undo" onclick="undo()" title="Undo">↶</button>
+  <button class="tb-btn" id="btn-redo" onclick="redo()" title="Redo">↷</button>
   <button class="tb-btn" onclick="exportJSON()">Export JSON</button>
   <button class="tb-btn" style="background:var(--accent);border-color:var(--accent);color:#fff" onclick="exportJSON()">Save</button>
 </div>
@@ -268,59 +270,59 @@ const DEPT_COLORS = {
 // ============================================================
 let rooms = [
   // WAREHOUSE ZONE (y=0 to 113.33)
-  { id: 'dock', x: 0, y: 0, w: 140, h: 16, dept: 'dk', name: 'Dock / Receiving', detail: 'Dock doors along E-line (south). 130\' truck court outside.', people: '' },
-  { id: 'wh_main', x: 0, y: 16, w: 96, h: 73.33, dept: 'wh', name: 'General Warehouse', detail: 'Equipment/tools (secondary co.). Racking, staging, forklift.', people: '' },
-  { id: 'cage', x: 96, y: 16, w: 44, h: 36, dept: 'cag', name: 'Caged / Secured', detail: 'Copper, high-value tools. Keyed access only.', people: '' },
-  { id: 'svc_stock', x: 96, y: 52, w: 44, h: 37.33, dept: 'svc', name: 'Service Stock', detail: 'Service materials. Dedicated ext entrance (east wall).', people: '' },
-  { id: 'elec', x: 116, y: 89.33, w: 24, h: 12, dept: 'elc', name: 'Electrical Room', detail: 'Existing per A101.', people: '' },
-  { id: 'pump', x: 116, y: 101.33, w: 24, h: 12, dept: 'elc', name: 'Pump Room', detail: 'Existing per A101.', people: '' },
-  { id: 'wh_office', x: 0, y: 97.33, w: 20, h: 16, dept: 'wh', name: 'WH Office', detail: 'Shared office for 4 warehouse staff.', people: '4' },
-  { id: 'wh_rr', x: 20, y: 97.33, w: 14, h: 16, dept: 'utl', name: 'WH Restroom', detail: '1 stall + 1 urinal + sink.', people: '' },
-  { id: 'it_room', x: 34, y: 97.33, w: 14, h: 16, dept: 'utl', name: 'IT Room', detail: 'Server rack, network, UPS.', people: '' },
-  { id: 'storage', x: 48, y: 89.33, w: 28, h: 24, dept: 'utl', name: 'Storage', detail: 'Office supplies, cleaning equipment.', people: '' },
-  { id: 'wh_staging', x: 76, y: 89.33, w: 40, h: 24, dept: 'wh', name: 'WH Staging', detail: 'Staging area.', people: '' },
+  { id: 'dock', x: 0, y: 0, w: 140, h: 16, dept: 'dk', name: 'Dock / Receiving', detail: 'Dock doors along E-line (south). 130\' truck court outside.', people: '', rotation: 0, customColor: null },
+  { id: 'wh_main', x: 0, y: 16, w: 96, h: 73.33, dept: 'wh', name: 'General Warehouse', detail: 'Equipment/tools (secondary co.). Racking, staging, forklift.', people: '', rotation: 0, customColor: null },
+  { id: 'cage', x: 96, y: 16, w: 44, h: 36, dept: 'cag', name: 'Caged / Secured', detail: 'Copper, high-value tools. Keyed access only.', people: '', rotation: 0, customColor: null },
+  { id: 'svc_stock', x: 96, y: 52, w: 44, h: 37.33, dept: 'svc', name: 'Service Stock', detail: 'Service materials. Dedicated ext entrance (east wall).', people: '', rotation: 0, customColor: null },
+  { id: 'elec', x: 116, y: 89.33, w: 24, h: 12, dept: 'elc', name: 'Electrical Room', detail: 'Existing per A101.', people: '', rotation: 0, customColor: null },
+  { id: 'pump', x: 116, y: 101.33, w: 24, h: 12, dept: 'elc', name: 'Pump Room', detail: 'Existing per A101.', people: '', rotation: 0, customColor: null },
+  { id: 'wh_office', x: 0, y: 97.33, w: 20, h: 16, dept: 'wh', name: 'WH Office', detail: 'Shared office for 4 warehouse staff.', people: '4', rotation: 0, customColor: null },
+  { id: 'wh_rr', x: 20, y: 97.33, w: 14, h: 16, dept: 'utl', name: 'WH Restroom', detail: '1 stall + 1 urinal + sink.', people: '', rotation: 0, customColor: null },
+  { id: 'it_room', x: 34, y: 97.33, w: 14, h: 16, dept: 'utl', name: 'IT Room', detail: 'Server rack, network, UPS.', people: '', rotation: 0, customColor: null },
+  { id: 'storage', x: 48, y: 89.33, w: 28, h: 24, dept: 'utl', name: 'Storage', detail: 'Office supplies, cleaning equipment.', people: '', rotation: 0, customColor: null },
+  { id: 'wh_staging', x: 76, y: 89.33, w: 40, h: 24, dept: 'wh', name: 'WH Staging', detail: 'Staging area.', people: '', rotation: 0, customColor: null },
   // OFFICE CORRIDORS
-  { id: 'corr_ew', x: 0, y: 165, w: 140, h: 6, dept: 'cor', name: 'Main E-W Corridor', detail: '6\' wide main corridor.', people: '' },
-  { id: 'corr_ns_a_s', x: 46, y: 113.33, w: 6, h: 51.67, dept: 'cor', name: 'N-S Corridor A', detail: '', people: '' },
-  { id: 'corr_ns_a_n', x: 46, y: 171, w: 6, h: 49, dept: 'cor', name: 'N-S Corridor A', detail: '', people: '' },
-  { id: 'corr_ns_b_s', x: 94, y: 113.33, w: 6, h: 51.67, dept: 'cor', name: 'N-S Corridor B', detail: '', people: '' },
-  { id: 'corr_ns_b_n', x: 94, y: 171, w: 6, h: 49, dept: 'cor', name: 'N-S Corridor B', detail: '', people: '' },
-  { id: 'corr_ns_c', x: 114, y: 113.33, w: 6, h: 51.67, dept: 'cor', name: 'N-S Corridor C', detail: 'East wall office access.', people: '' },
+  { id: 'corr_ew', x: 0, y: 165, w: 140, h: 6, dept: 'cor', name: 'Main E-W Corridor', detail: '6\' wide main corridor.', people: '', rotation: 0, customColor: null },
+  { id: 'corr_ns_a_s', x: 46, y: 113.33, w: 6, h: 51.67, dept: 'cor', name: 'N-S Corridor A', detail: '', people: '', rotation: 0, customColor: null },
+  { id: 'corr_ns_a_n', x: 46, y: 171, w: 6, h: 49, dept: 'cor', name: 'N-S Corridor A', detail: '', people: '', rotation: 0, customColor: null },
+  { id: 'corr_ns_b_s', x: 94, y: 113.33, w: 6, h: 51.67, dept: 'cor', name: 'N-S Corridor B', detail: '', people: '', rotation: 0, customColor: null },
+  { id: 'corr_ns_b_n', x: 94, y: 171, w: 6, h: 49, dept: 'cor', name: 'N-S Corridor B', detail: '', people: '', rotation: 0, customColor: null },
+  { id: 'corr_ns_c', x: 114, y: 113.33, w: 6, h: 51.67, dept: 'cor', name: 'N-S Corridor C', detail: 'East wall office access.', people: '', rotation: 0, customColor: null },
   // NORTH OF CORRIDOR (y=171 to 220) — ESTIMATING + COMMON
-  { id: 'reception', x: 118, y: 200, w: 22, h: 20, dept: 'rec', name: 'Reception', detail: 'Main entry at NE corner (A-11). Visitor seating.', people: '1' },
-  { id: 'owner', x: 100, y: 204, w: 18, h: 16, dept: 'est', name: 'Owner Office', detail: 'Window office (north wall).', people: '1' },
-  { id: 'vp_precon', x: 100, y: 188, w: 18, h: 16, dept: 'est', name: 'VP Preconstruction', detail: 'Window office. Slightly larger.', people: '1' },
-  { id: 'est1', x: 52, y: 206, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 1', detail: 'North wall window office.', people: '1' },
-  { id: 'est2', x: 66, y: 206, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 2', detail: 'North wall window office.', people: '1' },
-  { id: 'est3', x: 80, y: 206, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 3', detail: 'North wall window office.', people: '1' },
-  { id: 'est4', x: 52, y: 192, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 4', detail: 'Private office.', people: '1' },
-  { id: 'est5', x: 80, y: 192, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 5', detail: 'Private office.', people: '1' },
-  { id: 'est_cubes', x: 66, y: 171, w: 14, h: 35, dept: 'est', name: 'Est Cubicles (6)', detail: '2 current + 4 future jr estimators/assistants.', people: '2 → 6' },
-  { id: 'owner_asst', x: 100, y: 171, w: 18, h: 17, dept: 'est', name: 'Owner Assistant', detail: 'Cubicle station.', people: '1' },
-  { id: 'flex_est', x: 118, y: 171, w: 22, h: 29, dept: 'fut', name: 'Future / Flex (Est)', detail: 'Estimating growth space. East wall windows.', people: '' },
-  { id: 'lg_conf', x: 0, y: 196, w: 24, h: 24, dept: 'com', name: 'Lg Conference', detail: '24 seats. AV wall. Superintendent weekly meetings.', people: '24 cap' },
-  { id: 'sm_conf', x: 24, y: 200, w: 16, h: 20, dept: 'com', name: 'Sm Conference', detail: '12 seats.', people: '12 cap' },
-  { id: 'break_room', x: 0, y: 171, w: 24, h: 25, dept: 'com', name: 'Break Room', detail: 'Seating 20+, multiple refrigerators, coffee makers, cabinetry.', people: 'All staff' },
-  { id: 'gym', x: 24, y: 171, w: 22, h: 22, dept: 'com', name: 'Gym', detail: 'Cardio, free weights, racks. ~484 SF.', people: '' },
+  { id: 'reception', x: 118, y: 200, w: 22, h: 20, dept: 'rec', name: 'Reception', detail: 'Main entry at NE corner (A-11). Visitor seating.', people: '1', rotation: 0, customColor: null },
+  { id: 'owner', x: 100, y: 204, w: 18, h: 16, dept: 'est', name: 'Owner Office', detail: 'Window office (north wall).', people: '1', rotation: 0, customColor: null },
+  { id: 'vp_precon', x: 100, y: 188, w: 18, h: 16, dept: 'est', name: 'VP Preconstruction', detail: 'Window office. Slightly larger.', people: '1', rotation: 0, customColor: null },
+  { id: 'est1', x: 52, y: 206, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 1', detail: 'North wall window office.', people: '1', rotation: 0, customColor: null },
+  { id: 'est2', x: 66, y: 206, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 2', detail: 'North wall window office.', people: '1', rotation: 0, customColor: null },
+  { id: 'est3', x: 80, y: 206, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 3', detail: 'North wall window office.', people: '1', rotation: 0, customColor: null },
+  { id: 'est4', x: 52, y: 192, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 4', detail: 'Private office.', people: '1', rotation: 0, customColor: null },
+  { id: 'est5', x: 80, y: 192, w: 14, h: 14, dept: 'est', name: 'Sr Estimator 5', detail: 'Private office.', people: '1', rotation: 0, customColor: null },
+  { id: 'est_cubes', x: 66, y: 171, w: 14, h: 35, dept: 'est', name: 'Est Cubicles (6)', detail: '2 current + 4 future jr estimators/assistants.', people: '2 → 6', rotation: 0, customColor: null },
+  { id: 'owner_asst', x: 100, y: 171, w: 18, h: 17, dept: 'est', name: 'Owner Assistant', detail: 'Cubicle station.', people: '1', rotation: 0, customColor: null },
+  { id: 'flex_est', x: 118, y: 171, w: 22, h: 29, dept: 'fut', name: 'Future / Flex (Est)', detail: 'Estimating growth space. East wall windows.', people: '', rotation: 0, customColor: null },
+  { id: 'lg_conf', x: 0, y: 196, w: 24, h: 24, dept: 'com', name: 'Lg Conference', detail: '24 seats. AV wall. Superintendent weekly meetings.', people: '24 cap', rotation: 0, customColor: null },
+  { id: 'sm_conf', x: 24, y: 200, w: 16, h: 20, dept: 'com', name: 'Sm Conference', detail: '12 seats.', people: '12 cap', rotation: 0, customColor: null },
+  { id: 'break_room', x: 0, y: 171, w: 24, h: 25, dept: 'com', name: 'Break Room', detail: 'Seating 20+, multiple refrigerators, coffee makers, cabinetry.', people: 'All staff', rotation: 0, customColor: null },
+  { id: 'gym', x: 24, y: 171, w: 22, h: 22, dept: 'com', name: 'Gym', detail: 'Cardio, free weights, racks. ~484 SF.', people: '', rotation: 0, customColor: null },
   // SOUTH OF CORRIDOR (y=113.33 to 165) — OPS + PAY/HR + SERVICE
-  { id: 'vp_ops', x: 120, y: 113.33, w: 20, h: 17, dept: 'ops', name: 'VP Operations', detail: 'East wall window office. Slightly larger.', people: '1' },
-  { id: 'pm1', x: 120, y: 130.33, w: 20, h: 16, dept: 'ops', name: 'PM 1', detail: 'East wall window.', people: '1' },
-  { id: 'pm2', x: 120, y: 146.33, w: 20, h: 18.67, dept: 'ops', name: 'PM 2', detail: 'East wall window.', people: '1' },
-  { id: 'pm3', x: 100, y: 113.33, w: 14, h: 17, dept: 'ops', name: 'PM 3', detail: 'Corridor access.', people: '1' },
-  { id: 'purch1', x: 100, y: 130.33, w: 14, h: 17, dept: 'ops', name: 'Purchasing 1', detail: 'Phone-heavy, private office.', people: '1' },
-  { id: 'purch2', x: 100, y: 147.33, w: 14, h: 17.67, dept: 'ops', name: 'Purchasing 2', detail: 'Phone-heavy, private office.', people: '1' },
-  { id: 'pm_cubes', x: 100, y: 149, w: 14, h: 16, dept: 'ops', name: 'PM/APM Cubicles', detail: '1 now → 4 future APM stations.', people: '1 → 4' },
-  { id: 'safety', x: 80, y: 134, w: 14, h: 31, dept: 'ops', name: 'Safety / QC', detail: '2 cubicle stations.', people: '2' },
-  { id: 'flex_ops', x: 66, y: 127.33, w: 28, h: 20, dept: 'fut', name: 'Future / Flex (Ops)', detail: 'Operations growth space.', people: '' },
-  { id: 'pay1', x: 52, y: 113.33, w: 14, h: 14, dept: 'pay', name: 'Payroll 1', detail: 'Private office.', people: '1' },
-  { id: 'pay2', x: 52, y: 127.33, w: 14, h: 14, dept: 'pay', name: 'Payroll 2', detail: 'Private office.', people: '1' },
-  { id: 'pay3', x: 52, y: 141.33, w: 14, h: 14, dept: 'pay', name: 'HR / Payroll 3', detail: 'Confidential conversations.', people: '1' },
-  { id: 'svc_disp', x: 52, y: 155.33, w: 14, h: 9.67, dept: 'svc', name: 'Svc Dispatch', detail: '3 dispatch/coordinators + 1 assistant.', people: '4' },
-  { id: 'mens_rr', x: 0, y: 113.33, w: 24, h: 22, dept: 'utl', name: "Men's Restroom", detail: '4 stalls (1 ADA), 3 urinals, 3 sinks, 1 shower.', people: '' },
-  { id: 'womens_rr', x: 0, y: 135.33, w: 24, h: 16, dept: 'utl', name: "Women's Restroom", detail: '3 stalls (1 ADA), 2 sinks, 1 shower.', people: '' },
-  { id: 'flex_train', x: 24, y: 113.33, w: 22, h: 20, dept: 'com', name: 'Training / Flex', detail: 'Additional training or collaboration space.', people: '' },
-  { id: 'print_copy', x: 24, y: 133.33, w: 22, h: 18, dept: 'com', name: 'Print / Copy', detail: 'Plotters, copiers.', people: '' },
-  { id: 'open_collab', x: 0, y: 151.33, w: 46, h: 13.67, dept: 'com', name: 'Open Collab', detail: 'Flexible open area.', people: '' },
+  { id: 'vp_ops', x: 120, y: 113.33, w: 20, h: 17, dept: 'ops', name: 'VP Operations', detail: 'East wall window office. Slightly larger.', people: '1', rotation: 0, customColor: null },
+  { id: 'pm1', x: 120, y: 130.33, w: 20, h: 16, dept: 'ops', name: 'PM 1', detail: 'East wall window.', people: '1', rotation: 0, customColor: null },
+  { id: 'pm2', x: 120, y: 146.33, w: 20, h: 18.67, dept: 'ops', name: 'PM 2', detail: 'East wall window.', people: '1', rotation: 0, customColor: null },
+  { id: 'pm3', x: 100, y: 113.33, w: 14, h: 17, dept: 'ops', name: 'PM 3', detail: 'Corridor access.', people: '1', rotation: 0, customColor: null },
+  { id: 'purch1', x: 100, y: 130.33, w: 14, h: 17, dept: 'ops', name: 'Purchasing 1', detail: 'Phone-heavy, private office.', people: '1', rotation: 0, customColor: null },
+  { id: 'purch2', x: 100, y: 147.33, w: 14, h: 17.67, dept: 'ops', name: 'Purchasing 2', detail: 'Phone-heavy, private office.', people: '1', rotation: 0, customColor: null },
+  { id: 'pm_cubes', x: 100, y: 149, w: 14, h: 16, dept: 'ops', name: 'PM/APM Cubicles', detail: '1 now → 4 future APM stations.', people: '1 → 4', rotation: 0, customColor: null },
+  { id: 'safety', x: 80, y: 134, w: 14, h: 31, dept: 'ops', name: 'Safety / QC', detail: '2 cubicle stations.', people: '2', rotation: 0, customColor: null },
+  { id: 'flex_ops', x: 66, y: 127.33, w: 28, h: 20, dept: 'fut', name: 'Future / Flex (Ops)', detail: 'Operations growth space.', people: '', rotation: 0, customColor: null },
+  { id: 'pay1', x: 52, y: 113.33, w: 14, h: 14, dept: 'pay', name: 'Payroll 1', detail: 'Private office.', people: '1', rotation: 0, customColor: null },
+  { id: 'pay2', x: 52, y: 127.33, w: 14, h: 14, dept: 'pay', name: 'Payroll 2', detail: 'Private office.', people: '1', rotation: 0, customColor: null },
+  { id: 'pay3', x: 52, y: 141.33, w: 14, h: 14, dept: 'pay', name: 'HR / Payroll 3', detail: 'Confidential conversations.', people: '1', rotation: 0, customColor: null },
+  { id: 'svc_disp', x: 52, y: 155.33, w: 14, h: 9.67, dept: 'svc', name: 'Svc Dispatch', detail: '3 dispatch/coordinators + 1 assistant.', people: '4', rotation: 0, customColor: null },
+  { id: 'mens_rr', x: 0, y: 113.33, w: 24, h: 22, dept: 'utl', name: "Men's Restroom", detail: '4 stalls (1 ADA), 3 urinals, 3 sinks, 1 shower.', people: '', rotation: 0, customColor: null },
+  { id: 'womens_rr', x: 0, y: 135.33, w: 24, h: 16, dept: 'utl', name: "Women's Restroom", detail: '3 stalls (1 ADA), 2 sinks, 1 shower.', people: '', rotation: 0, customColor: null },
+  { id: 'flex_train', x: 24, y: 113.33, w: 22, h: 20, dept: 'com', name: 'Training / Flex', detail: 'Additional training or collaboration space.', people: '', rotation: 0, customColor: null },
+  { id: 'print_copy', x: 24, y: 133.33, w: 22, h: 18, dept: 'com', name: 'Print / Copy', detail: 'Plotters, copiers.', people: '', rotation: 0, customColor: null },
+  { id: 'open_collab', x: 0, y: 151.33, w: 46, h: 13.67, dept: 'com', name: 'Open Collab', detail: 'Flexible open area.', people: '', rotation: 0, customColor: null },
 ];
 // ============================================================
 // DOOR & WINDOW MARKERS
@@ -378,6 +380,38 @@ let nextId = 100;
 const S_PX = CONFIG.scale;
 const wrap = document.getElementById('canvasWrap');
 const inner = document.getElementById('canvasInner');
+// ============================================================
+// HISTORY MANAGEMENT
+// ============================================================
+let undoStack = [];
+let redoStack = [];
+const maxHistorySize = 50;
+function saveToHistory() {
+  undoStack.push(JSON.stringify(rooms));
+  if (undoStack.length > maxHistorySize) undoStack.shift();
+  redoStack = [];
+  updateHistoryButtons();
+}
+function undo() {
+  if (undoStack.length === 0) return;
+  redoStack.push(JSON.stringify(rooms));
+  rooms = JSON.parse(undoStack.pop());
+  render(); showProps(selectedId);
+  updateHistoryButtons();
+}
+function redo() {
+  if (redoStack.length === 0) return;
+  undoStack.push(JSON.stringify(rooms));
+  rooms = JSON.parse(redoStack.pop());
+  render(); showProps(selectedId);
+  updateHistoryButtons();
+}
+function updateHistoryButtons() {
+  document.getElementById('btn-undo').disabled = undoStack.length === 0;
+  document.getElementById('btn-redo').disabled = redoStack.length === 0;
+  document.getElementById('btn-undo').style.opacity = undoStack.length === 0 ? '0.5' : '1';
+  document.getElementById('btn-redo').style.opacity = redoStack.length === 0 ? '0.5' : '1';
+}
 // ============================================================
 // RENDER
 // ============================================================
@@ -452,8 +486,8 @@ function render() {
     const sy = (CONFIG.buildingDepth - r.y - r.h) * S_PX;
     const sw = r.w * S_PX;
     const sh = r.h * S_PX;
-    const col = DEPT_COLORS[r.dept]?.fill || '#ccc';
-    el.style.cssText = `left:${sx}px;top:${sy}px;width:${sw}px;height:${sh}px;background:${col};`;
+    const col = r.customColor || DEPT_COLORS[r.dept]?.fill || '#ccc';
+    el.style.cssText = `left:${sx}px;top:${sy}px;width:${sw}px;height:${sh}px;background:${col};transform:rotate(${r.rotation}deg);`;
 
     const sf = Math.round(r.w * r.h);
     el.innerHTML = `
@@ -530,6 +564,8 @@ function showProps(id) {
   panel.innerHTML = `
     <div class="field"><label>Name</label><input value="${r.name}" onchange="updateProp('${id}','name',this.value)"/></div>
     <div class="field"><label>Department</label><select onchange="updateProp('${id}','dept',this.value)">${deptOpts}</select></div>
+    <div class="field"><label>Color</label><input type="color" value="${(r.customColor || DEPT_COLORS[r.dept]?.fill || '#cccccc').replace(/[^#0-9a-f]/g, '').substring(0, 7) || '#cccccc'}" onchange="updateProp('${id}','customColor',this.value)"/></div>
+    <div class="field"><label>Rotation</label><input type="number" step="5" min="0" max="360" value="${r.rotation}" onchange="updateProp('${id}','rotation',+this.value)"/></div>
     <div class="field-row">
       <div class="field"><label>X (ft)</label><input type="number" step="1" value="${r.x}" onchange="updateProp('${id}','x',+this.value)"/></div>
       <div class="field"><label>Y (ft)</label><input type="number" step="1" value="${r.y}" onchange="updateProp('${id}','y',+this.value)"/></div>
@@ -545,7 +581,7 @@ function showProps(id) {
 }
 function updateProp(id, prop, val) {
   const r = rooms.find(rm => rm.id === id);
-  if (r) { r[prop] = val; render(); showProps(id); }
+  if (r) { saveToHistory(); r[prop] = val; render(); showProps(id); }
 }
 // ============================================================
 // DRAG & RESIZE
@@ -593,7 +629,7 @@ function onDrag(e) {
 function endDrag() {
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', endDrag);
-  if (isDragging) selectRoom(dragTarget);
+  if (isDragging) { saveToHistory(); selectRoom(dragTarget); }
   isDragging = false; dragTarget = null;
 }
 // ============================================================
@@ -632,14 +668,16 @@ function toggleSnap() { snapEnabled = !snapEnabled; document.getElementById('btn
 // ADD & DELETE ROOMS
 // ============================================================
 function addRoom() {
+  saveToHistory();
   const id = 'room_' + (nextId++);
-  rooms.push({ id, x: 60, y: 140, w: 14, h: 14, dept: 'com', name: 'New Room', detail: '', people: '' });
+  rooms.push({ id, x: 60, y: 140, w: 14, h: 14, dept: 'com', name: 'New Room', detail: '', people: '', rotation: 0, customColor: null });
   selectRoom(id);
   render(); showProps(id);
 }
 function deleteSelected() {
   if (!selectedId) return;
   if (!confirm('Delete "' + (rooms.find(r=>r.id===selectedId)?.name||'') + '"?')) return;
+  saveToHistory();
   rooms = rooms.filter(r => r.id !== selectedId);
   selectedId = null;
   render();
@@ -683,21 +721,29 @@ function downloadExport() {
 // KEYBOARD SHORTCUTS
 // ============================================================
 document.addEventListener('keydown', e => {
+  const isCtrlZ = (e.ctrlKey || e.metaKey) && e.key === 'z';
+  const isCtrlShiftZ = (e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z';
+  const isCtrlY = (e.ctrlKey || e.metaKey) && e.key === 'y';
+
+  if (isCtrlZ) { e.preventDefault(); undo(); return; }
+  if (isCtrlShiftZ || isCtrlY) { e.preventDefault(); redo(); return; }
+
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   const r = rooms.find(rm => rm.id === selectedId);
   const step = snapEnabled ? CONFIG.snapSize : 1;
   if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); }
   else if (e.key === 'Escape') { selectedId = null; render(); }
-  else if (e.key === 'ArrowLeft' && r) { r.x -= step; render(); showProps(selectedId); }
-  else if (e.key === 'ArrowRight' && r) { r.x += step; render(); showProps(selectedId); }
-  else if (e.key === 'ArrowUp' && r) { r.y += step; render(); showProps(selectedId); }
-  else if (e.key === 'ArrowDown' && r) { r.y -= step; render(); showProps(selectedId); }
+  else if (e.key === 'ArrowLeft' && r) { saveToHistory(); r.x -= step; render(); showProps(selectedId); }
+  else if (e.key === 'ArrowRight' && r) { saveToHistory(); r.x += step; render(); showProps(selectedId); }
+  else if (e.key === 'ArrowUp' && r) { saveToHistory(); r.y += step; render(); showProps(selectedId); }
+  else if (e.key === 'ArrowDown' && r) { saveToHistory(); r.y -= step; render(); showProps(selectedId); }
   else if (e.key === '+' || e.key === '=') zoomIn();
   else if (e.key === '-') zoomOut();
 });
 // INIT
 document.getElementById('btn-grid').classList.add('active');
 document.getElementById('btn-snap').classList.add('active');
+updateHistoryButtons();
 render();
 </script>
 </body>
