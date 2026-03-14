@@ -1,0 +1,72 @@
+{
+  "$schema": "./schemas/marketplace.schema.json",
+  "marketplace": {
+    "name": "Claude Code Plugin Marketplace",
+    "version": "1.0.0",
+    "description": "The official Anthropic marketplace for Claude Code plugins",
+    "homepage": "https://marketplace.claudecode.anthropic.com",
+    "api_version": "v1",
+    "last_updated": "2026-03-14T00:00:00Z"
+  },
+  "owner": {
+    "name": "Anthropic",
+    "url": "https://anthropic.com",
+    "support_email": "plugins@anthropic.com",
+    "security_email": "security@anthropic.com",
+    "github": "https://github.com/anthropics"
+  },
+  "categories": [
+    {
+      "id": "code-intelligence",
+      "name": "Code Intelligence",
+      "description": "Plugins that enhance code understanding, analysis, and generation",
+      "icon": "code"
+    },
+    {
+      "id": "integrations",
+      "name": "Integrations",
+      "description": "Plugins that connect Claude Code to external services and tools",
+      "icon": "plug"
+    },
+    {
+      "id": "workflows",
+      "name": "Workflows",
+      "description": "Plugins that automate and streamline development workflows",
+      "icon": "workflow"
+    },
+    {
+      "id": "learning",
+      "name": "Learning & Documentation",
+      "description": "Plugins that assist with learning, onboarding, and documentation",
+      "icon": "book"
+    }
+  ],
+  "registry": {
+    "official_plugins": [],
+    "community_plugins": []
+  },
+  "policies": {
+    "submission_review_days": 14,
+    "security_review_required": true,
+    "min_test_coverage": 80,
+    "requires_semantic_versioning": true,
+    "license_allowlist": [
+      "MIT",
+      "Apache-2.0",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "ISC"
+    ]
+  },
+  "validation": {
+    "schema_version": "1.0.0",
+    "required_fields": [
+      "name",
+      "version",
+      "description",
+      "author",
+      "category",
+      "entry_point"
+    ]
+  }
+}
