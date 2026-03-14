@@ -19,7 +19,7 @@ const path = require('path');
 // Helpers
 // ---------------------------------------------------------------------------
 
-const REPO_ROOT   = path.join(__dirname, '..');
+const REPO_ROOT   = path.join(__dirname, '..', '..');
 const DIST_DIR    = path.join(REPO_ROOT, 'dist');
 const CATALOG_OUT = path.join(DIST_DIR, 'catalog.json');
 
@@ -152,9 +152,9 @@ function main() {
     catalog.plugins.push(catalogEntry);
   }
 
-  // --- Local plugin manifests from plugins/ and external_plugins/ ---
+  // --- Local plugin manifests from plugins/ and marketplace/external_plugins/ ---
   const pluginsDir  = path.join(REPO_ROOT, 'plugins');
-  const externalDir = path.join(REPO_ROOT, 'external_plugins');
+  const externalDir = path.join(REPO_ROOT, 'marketplace', 'external_plugins');
   const manifestPaths = [
     ...findPluginManifests(pluginsDir).map(p => ({ path: p, source: 'official' })),
     ...findPluginManifests(externalDir).map(p => ({ path: p, source: 'community' })),

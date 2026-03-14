@@ -135,7 +135,7 @@ function validateMarketplace(marketplace) {
 
 function main() {
   const args = process.argv.slice(2);
-  const marketplacePath = args[0] || path.join(__dirname, '..', '.claude-plugin', 'marketplace.json');
+  const marketplacePath = args[0] || path.join(__dirname, '..', '..', '.claude-plugin', 'marketplace.json');
 
   log('info', `Validating marketplace registry: ${marketplacePath}`);
 
