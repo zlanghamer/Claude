@@ -1,0 +1,43 @@
+name: Validate Marketplace Registry
+
+on:
+  push:
+    paths:
+      - '.claude-plugin/marketplace.json'
+      - '.claude-plugin/schemas/marketplace.schema.json'
+      - 'scripts/validate-marketplace.js'
+  pull_request:
+    paths:
+      - '.claude-plugin/marketplace.json'
+      - '.claude-plugin/schemas/marketplace.schema.json'
+      - 'scripts/validate-marketplace.js'
+  # Allow manual trigger from the GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  validate-marketplace:
+    name: Validate marketplace.json
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run marketplace validation
+        run: node scripts/validate-marketplace.js
+
+      - name: Generate catalog (dry run)
+        run: node scripts/generate-catalog.js dist/catalog.json
+
+      - name: Upload catalog artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-catalog
+          path: dist/catalog.json
+          retention-days: 30

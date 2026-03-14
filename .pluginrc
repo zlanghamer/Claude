@@ -1,0 +1,67 @@
+# .pluginrc — Local Development Configuration for the Claude Code Plugin Marketplace
+#
+# This file configures local tooling behaviour.
+# It is safe to commit to version control; do not store secrets here.
+# Override any value with the corresponding environment variable (see below).
+
+# ---------------------------------------------------------------------------
+# Registry paths
+# ---------------------------------------------------------------------------
+
+# Path to the marketplace registry, relative to the repository root.
+MARKETPLACE_FILE=.claude-plugin/marketplace.json
+
+# Path to the marketplace JSON Schema.
+MARKETPLACE_SCHEMA=.claude-plugin/schemas/marketplace.schema.json
+
+# Path to the plugin manifest JSON Schema.
+PLUGIN_SCHEMA=.claude-plugin/schemas/plugin.schema.json
+
+# Directory containing official (Anthropic-authored) plugin sources.
+PLUGINS_DIR=plugins
+
+# Directory containing community plugin sources.
+EXTERNAL_PLUGINS_DIR=external_plugins
+
+# ---------------------------------------------------------------------------
+# Output paths
+# ---------------------------------------------------------------------------
+
+# Directory where generated artifacts (e.g. catalog.json) are written.
+# This directory is gitignored.
+DIST_DIR=dist
+
+# Generated catalog file name.
+CATALOG_FILE=catalog.json
+
+# ---------------------------------------------------------------------------
+# Validation settings
+# ---------------------------------------------------------------------------
+
+# Exit with a non-zero code if there are validation warnings (strict mode).
+# Set to "true" to enable. Defaults to "false".
+STRICT_WARNINGS=false
+
+# Minimum test coverage percentage required during local pre-commit checks.
+# The CI pipeline enforces 80 % regardless of this setting.
+MIN_TEST_COVERAGE=80
+
+# ---------------------------------------------------------------------------
+# Development server (future use)
+# ---------------------------------------------------------------------------
+
+# Port for the local marketplace development server.
+DEV_SERVER_PORT=3000
+
+# Whether to watch for file changes and auto-reload.
+DEV_WATCH=true
+
+# ---------------------------------------------------------------------------
+# Environment variable overrides
+# ---------------------------------------------------------------------------
+# Any of the keys above can be overridden by setting an environment variable
+# with the same name prefixed by CLAUDE_PLUGIN_, e.g.:
+#
+#   CLAUDE_PLUGIN_STRICT_WARNINGS=true node scripts/validate-marketplace.js
+#
+# Environment variables take precedence over values in this file.

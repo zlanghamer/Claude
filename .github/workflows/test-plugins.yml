@@ -1,0 +1,201 @@
+name: Validate and Test Plugins
+
+on:
+  push:
+    paths:
+      - 'plugins/**'
+      - 'external_plugins/**'
+      - 'scripts/validate-plugins.js'
+      - '.claude-plugin/schemas/plugin.schema.json'
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'external_plugins/**'
+      - 'scripts/validate-plugins.js'
+      - '.claude-plugin/schemas/plugin.schema.json'
+  workflow_dispatch:
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Detect which plugin directories have changed
+  # -------------------------------------------------------------------------
+  detect-changes:
+    name: Detect changed plugins
+    runs-on: ubuntu-latest
+    outputs:
+      changed_plugins: ${{ steps.changes.outputs.plugins }}
+      has_changes: ${{ steps.changes.outputs.has_changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find changed plugin directories
+        id: changes
+        run: |
+          # Determine the base ref for comparison
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="$(git rev-parse HEAD^1 2>/dev/null || echo '')"
+          fi
+
+          if [ -z "$BASE_SHA" ]; then
+            # First commit — consider all plugins changed
+            CHANGED=$(find plugins external_plugins -name 'plugin.json' 2>/dev/null | \
+              xargs -I{} dirname {} | sort -u | tr '\n' ' ')
+          else
+            CHANGED=$(git diff --name-only "$BASE_SHA" HEAD -- plugins/ external_plugins/ | \
+              grep -E '^(plugins|external_plugins)/' | \
+              xargs -I{} dirname {} | sort -u | tr '\n' ' ')
+          fi
+
+          echo "Changed plugin directories: $CHANGED"
+
+          if [ -z "$CHANGED" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "plugins=" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "plugins=$CHANGED" >> "$GITHUB_OUTPUT"
+          fi
+
+  # -------------------------------------------------------------------------
+  # Validate all plugin manifests (always runs)
+  # -------------------------------------------------------------------------
+  validate-all-plugins:
+    name: Validate all plugin manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate all plugin.json files
+        run: node scripts/validate-plugins.js
+
+  # -------------------------------------------------------------------------
+  # Run tests for changed plugins
+  # -------------------------------------------------------------------------
+  test-changed-plugins:
+    name: Test changed plugins
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate-all-plugins]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Run tests for changed plugins
+        shell: bash
+        env:
+          CHANGED_DIRS: ${{ needs.detect-changes.outputs.changed_plugins }}
+        run: |
+          FAILED=0
+
+          for dir in $CHANGED_DIRS; do
+            if [ ! -d "$dir" ]; then
+              echo "[SKIP] Directory no longer exists: $dir"
+              continue
+            fi
+
+            MANIFEST="$dir/plugin.json"
+            if [ ! -f "$MANIFEST" ]; then
+              echo "[SKIP] No plugin.json in $dir"
+              continue
+            fi
+
+            PLUGIN_NAME=$(node -e "try { console.log(require('./$MANIFEST').name) } catch(e) { console.log('unknown') }")
+            echo ""
+            echo "=== Testing plugin: $PLUGIN_NAME ($dir) ==="
+
+            PACKAGE_JSON="$dir/package.json"
+            if [ ! -f "$PACKAGE_JSON" ]; then
+              echo "[INFO] No package.json found — skipping npm test"
+              continue
+            fi
+
+            HAS_TEST=$(node -e "
+              const p = require('./$PACKAGE_JSON');
+              console.log(p.scripts && p.scripts.test ? 'yes' : 'no');
+            ")
+
+            if [ "$HAS_TEST" = "no" ]; then
+              echo "[WARN] No test script in package.json — skipping"
+              continue
+            fi
+
+            echo "[INFO] Installing dependencies..."
+            (cd "$dir" && npm ci --prefer-offline) || {
+              echo "[ERROR] npm ci failed for $dir"
+              FAILED=$((FAILED + 1))
+              continue
+            }
+
+            echo "[INFO] Running tests..."
+            (cd "$dir" && npm test) || {
+              echo "[ERROR] Tests failed for $PLUGIN_NAME"
+              FAILED=$((FAILED + 1))
+            }
+          done
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo ""
+            echo "[ERROR] $FAILED plugin(s) failed tests"
+            exit 1
+          fi
+
+          echo ""
+          echo "[ OK ] All changed plugins passed tests"
+
+  # -------------------------------------------------------------------------
+  # Summary gate — required status check
+  # -------------------------------------------------------------------------
+  plugin-ci-summary:
+    name: Plugin CI Summary
+    runs-on: ubuntu-latest
+    needs: [validate-all-plugins, test-changed-plugins]
+    # Always run so the status check is always posted
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          VALIDATE_RESULT="${{ needs.validate-all-plugins.result }}"
+          TEST_RESULT="${{ needs.test-changed-plugins.result }}"
+
+          echo "Validate manifests: $VALIDATE_RESULT"
+          echo "Test plugins:       $TEST_RESULT"
+
+          # test-changed-plugins is skipped when no plugins changed — that is fine
+          if [ "$VALIDATE_RESULT" != "success" ]; then
+            echo "Manifest validation failed"
+            exit 1
+          fi
+
+          if [ "$TEST_RESULT" = "failure" ]; then
+            echo "Plugin tests failed"
+            exit 1
+          fi
+
+          echo "All checks passed"
