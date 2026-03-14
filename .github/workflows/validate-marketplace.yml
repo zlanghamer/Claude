@@ -5,12 +5,12 @@ on:
     paths:
       - '.claude-plugin/marketplace.json'
       - '.claude-plugin/schemas/marketplace.schema.json'
-      - 'scripts/validate-marketplace.js'
+      - 'marketplace/scripts/validate-marketplace.js'
   pull_request:
     paths:
       - '.claude-plugin/marketplace.json'
       - '.claude-plugin/schemas/marketplace.schema.json'
-      - 'scripts/validate-marketplace.js'
+      - 'marketplace/scripts/validate-marketplace.js'
   # Allow manual trigger from the GitHub Actions UI
   workflow_dispatch:
 
@@ -29,10 +29,10 @@ jobs:
           node-version: '20'
 
       - name: Run marketplace validation
-        run: node scripts/validate-marketplace.js
+        run: node marketplace/scripts/validate-marketplace.js
 
       - name: Generate catalog (dry run)
-        run: node scripts/generate-catalog.js dist/catalog.json
+        run: node marketplace/scripts/generate-catalog.js dist/catalog.json
 
       - name: Upload catalog artifact
         if: github.ref == 'refs/heads/main'

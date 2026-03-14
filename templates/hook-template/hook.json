@@ -1,0 +1,15 @@
+{
+  "name": "my-hook",
+  "version": "1.0.0",
+  "description": "A hook that runs automatically when something happens",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "homepage": "https://github.com/yourname/your-repo",
+  "repository": "https://github.com/yourname/your-repo",
+  "license": "MIT",
+  "keywords": ["keyword1", "keyword2"],
+  "entry_point": "./index.js",
+  "triggers": ["event-name"]
+}

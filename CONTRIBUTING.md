@@ -1,6 +1,6 @@
 # Contributing to the Claude Code Plugin Marketplace
 
-Thank you for your interest in contributing. This document covers how to contribute to the marketplace infrastructure itself (schemas, validation scripts, documentation). To submit a new plugin, see [docs/PLUGIN_SUBMISSION.md](./docs/PLUGIN_SUBMISSION.md).
+Thank you for your interest in contributing. This document covers how to contribute to the marketplace infrastructure itself (schemas, validation scripts, documentation). To submit a new plugin, see [marketplace/docs/PLUGIN_SUBMISSION.md](./marketplace/docs/PLUGIN_SUBMISSION.md).
 
 ---
 
@@ -26,9 +26,9 @@ This project follows the [Anthropic Community Guidelines](https://anthropic.com)
 
 - **Bug reports** — Open a GitHub issue describing the problem, expected behaviour, and steps to reproduce.
 - **Feature requests** — Open a GitHub issue with a clear description of the proposed change and its motivation.
-- **Documentation** — Improve or expand any file in the `docs/` directory.
+- **Documentation** — Improve or expand any file in the `marketplace/docs/` or `docs/` directories.
 - **Schema improvements** — Enhance the JSON Schemas in `.claude-plugin/schemas/`.
-- **Validation scripts** — Improve or extend the scripts in `scripts/`.
+- **Validation scripts** — Improve or extend the scripts in `marketplace/scripts/`.
 - **GitHub Actions** — Improve CI/CD workflows in `.github/workflows/`.
 
 ---
@@ -53,13 +53,13 @@ npm install
 
 ```bash
 # Validate the marketplace registry
-node scripts/validate-marketplace.js
+node marketplace/scripts/validate-marketplace.js
 
 # Validate any plugin manifests (exits cleanly if none found)
-node scripts/validate-plugins.js
+node marketplace/scripts/validate-plugins.js
 
 # Generate the plugin catalog
-node scripts/generate-catalog.js
+node marketplace/scripts/generate-catalog.js
 ```
 
 All three commands should exit with code `0`.
@@ -75,19 +75,36 @@ All three commands should exit with code `0`.
     marketplace.schema.json JSON Schema for marketplace.json
     plugin.schema.json      JSON Schema for plugin manifests
 
-plugins/                    Official Anthropic plugin sources
-external_plugins/           Community plugin sources
+plugins/                    Your custom plugins (and official Anthropic plugins)
+skills/                     Your custom skills
+hooks/                      Your custom hooks
+experiments/                Testing ground for ideas
 
-scripts/
-  validate-marketplace.js   Validates marketplace.json
-  validate-plugins.js       Validates individual plugin.json files
-  generate-catalog.js       Generates dist/catalog.json
+marketplace/
+  scripts/
+    validate-marketplace.js Validates marketplace.json
+    validate-plugins.js     Validates individual plugin.json files
+    generate-catalog.js     Generates dist/catalog.json
+  external_plugins/         Community plugin sources
+  docs/
+    PLUGIN_GUIDELINES.md    Quality standards for plugins
+    PLUGIN_SUBMISSION.md    How to submit a plugin
+    MARKETPLACE_API.md      Registry and catalog format reference
+    SECURITY_POLICY.md      Security requirements and disclosure policy
+
+templates/
+  plugin-template/          Copy-paste starter for a new plugin
+  skill-template/           Copy-paste starter for a new skill
+  hook-template/            Copy-paste starter for a new hook
 
 docs/
-  PLUGIN_GUIDELINES.md      Quality standards for plugins
-  PLUGIN_SUBMISSION.md      How to submit a plugin
-  MARKETPLACE_API.md        Registry and catalog format reference
-  SECURITY_POLICY.md        Security requirements and disclosure policy
+  HOW_TO_CREATE_PLUGINS.md  Step-by-step guide for plugins
+  HOW_TO_CREATE_SKILLS.md   Step-by-step guide for skills
+  HOW_TO_CREATE_HOOKS.md    Step-by-step guide for hooks
+  CHANGELOG.md              Track what you build over time
+  MY_NOTES.md               Personal learning journal
+
+marketplace-submissions/    Plugins polished and ready to submit
 
 .github/
   workflows/
@@ -95,7 +112,10 @@ docs/
     test-plugins.yml          CI: validate and test changed plugins
 
 .pluginrc                   Local development configuration
+README.md                   Home page and overview
+QUICK_START.md              Getting started in minutes
 CONTRIBUTING.md             This file
+CLAUDE.md                   Project rules for Claude Code
 ```
 
 ---
@@ -111,8 +131,8 @@ CONTRIBUTING.md             This file
 
 3. **Validate** your changes locally:
    ```bash
-   node scripts/validate-marketplace.js
-   node scripts/validate-plugins.js
+   node marketplace/scripts/validate-marketplace.js
+   node marketplace/scripts/validate-plugins.js
    ```
 
 4. **Test** any script changes:

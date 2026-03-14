@@ -1,0 +1,14 @@
+{
+  "name": "my-skill",
+  "version": "1.0.0",
+  "description": "A skill that teaches Claude to do something specific",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "homepage": "https://github.com/yourname/your-repo",
+  "repository": "https://github.com/yourname/your-repo",
+  "license": "MIT",
+  "keywords": ["keyword1", "keyword2"],
+  "entry_point": "./index.js"
+}

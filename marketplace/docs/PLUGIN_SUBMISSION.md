@@ -46,10 +46,10 @@ Run the bundled validation scripts from the marketplace repository root:
 
 ```bash
 # Validate marketplace.json (optional — verifies registry integrity)
-node scripts/validate-marketplace.js
+node marketplace/scripts/validate-marketplace.js
 
 # Validate your plugin manifest
-node scripts/validate-plugins.js path/to/your-plugin/plugin.json
+node marketplace/scripts/validate-plugins.js path/to/your-plugin/plugin.json
 ```
 
 Fix all errors before proceeding. Warnings should also be reviewed.
@@ -62,7 +62,7 @@ Fix all errors before proceeding. Warnings should also be reviewed.
 2. Create a branch named `add-plugin/<your-plugin-name>`.
 3. Add your plugin:
    - **Official Anthropic plugins:** place the plugin directory inside `plugins/`.
-   - **Community plugins:** place the plugin directory inside `external_plugins/`.
+   - **Community plugins:** place the plugin directory inside `marketplace/external_plugins/`.
 4. Update `.claude-plugin/marketplace.json`:
    - Add an entry to `registry.community_plugins` (or `registry.official_plugins` for Anthropic-authored plugins).
    - Entry must include: `id`, `name`, `version`, `category`, `repository`.

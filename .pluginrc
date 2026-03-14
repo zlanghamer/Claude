@@ -21,7 +21,7 @@ PLUGIN_SCHEMA=.claude-plugin/schemas/plugin.schema.json
 PLUGINS_DIR=plugins
 
 # Directory containing community plugin sources.
-EXTERNAL_PLUGINS_DIR=external_plugins
+EXTERNAL_PLUGINS_DIR=marketplace/external_plugins
 
 # ---------------------------------------------------------------------------
 # Output paths

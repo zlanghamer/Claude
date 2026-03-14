@@ -4,14 +4,14 @@ on:
   push:
     paths:
       - 'plugins/**'
-      - 'external_plugins/**'
-      - 'scripts/validate-plugins.js'
+      - 'marketplace/external_plugins/**'
+      - 'marketplace/scripts/validate-plugins.js'
       - '.claude-plugin/schemas/plugin.schema.json'
   pull_request:
     paths:
       - 'plugins/**'
-      - 'external_plugins/**'
-      - 'scripts/validate-plugins.js'
+      - 'marketplace/external_plugins/**'
+      - 'marketplace/scripts/validate-plugins.js'
       - '.claude-plugin/schemas/plugin.schema.json'
   workflow_dispatch:
 
@@ -43,11 +43,11 @@ jobs:
 
           if [ -z "$BASE_SHA" ]; then
             # First commit — consider all plugins changed
-            CHANGED=$(find plugins external_plugins -name 'plugin.json' 2>/dev/null | \
+            CHANGED=$(find plugins marketplace/external_plugins -name 'plugin.json' 2>/dev/null | \
               xargs -I{} dirname {} | sort -u | tr '\n' ' ')
           else
-            CHANGED=$(git diff --name-only "$BASE_SHA" HEAD -- plugins/ external_plugins/ | \
-              grep -E '^(plugins|external_plugins)/' | \
+            CHANGED=$(git diff --name-only "$BASE_SHA" HEAD -- plugins/ marketplace/external_plugins/ | \
+              grep -E '^(plugins|marketplace/external_plugins)/' | \
               xargs -I{} dirname {} | sort -u | tr '\n' ' ')
           fi
 
@@ -78,7 +78,7 @@ jobs:
           node-version: '20'
 
       - name: Validate all plugin.json files
-        run: node scripts/validate-plugins.js
+        run: node marketplace/scripts/validate-plugins.js
 
   # -------------------------------------------------------------------------
   # Run tests for changed plugins
