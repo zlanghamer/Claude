@@ -1,0 +1,83 @@
+//@version=5
+// AI Council Scanner — fundamental verdict (embedded) x live technical confirmation
+// Source: ClaudeVault market-data/results/ai_council_v3_better_metrics.md (2026-06-14)
+// Companion guide: AI_Council_Scanner_Setup_Guide.md
+//
+// SCORE 0-6 = Fundamental base (0-2, from the council) + Technical confirmation (0-4, live).
+// The council's fundamental ranking can't be computed in Pine, so it's embedded per-symbol
+// as of 2026-06-14 — REFRESH it after earnings (see guide "Known Limitations").
+indicator("AI Council Scanner", overlay = false, precision = 0)
+
+// ---- inputs ----
+hh_len     = input.int(20,  "Breakout lookback (bars)")
+near_pct   = input.float(3.0,"Breakout-proximity band %", minval = 0.5)
+mom_len    = input.int(20,  "Momentum lookback (bars)")
+trip_pct   = input.float(6.0,"Thesis tripwire: daily move %", minval = 1.0)
+regimeSym  = input.string("NASDAQ:QQQ","Regime filter symbol")
+
+// ---- embedded council verdict (12-month, v3 fundamentals) ----
+var tk    = array.from("AVGO","NVDA","TSM","ANET","GOOGL","MU","CRWD","MKSI","MRVL","NBIS","CRDO","COHR")
+var tier  = array.from("TOP","TOP","TOP","TOP","TOP","CYCLICAL","QUAL-RICH","MID","CAUTION","CAUTION","CAUTION","CAUTION")
+var rk12  = array.from(1,2,3,4,5,6,7,8,9,10,11,12)
+var fbase = array.from(2,2,2,2,2,1,1,1,0,0,0,0)   // fundamental base points (0-2)
+
+idx       = array.indexof(tk, syminfo.ticker)
+rated     = idx >= 0
+fundBase  = rated ? array.get(fbase, idx) : 0
+tierStr   = rated ? array.get(tier, idx)  : "not rated"
+rankStr   = rated ? str.tostring(array.get(rk12, idx)) : na
+
+// ---- live technical signals (0-4) ----
+sma50  = ta.sma(close, 50)
+sma200 = ta.sma(close, 200)
+sig_trend  = close > sma50 and close > sma200 and sma50 > sma50[5]          // structural uptrend
+hh         = ta.highest(high, hh_len)
+sig_break  = close >= hh[1] * (1.0 - near_pct/100.0)                        // at/near breakout
+regimeOn   = request.security(regimeSym, timeframe.period, close > ta.sma(close, 50))
+sig_regime = regimeOn                                                        // Nasdaq uptrend
+sig_mom    = close > close[mom_len]                                          // 1-month momentum
+
+tech = (sig_trend ? 1 : 0) + (sig_break ? 1 : 0) + (sig_regime ? 1 : 0) + (sig_mom ? 1 : 0)
+score = fundBase + tech                                                      // 0-6
+
+// ---- plot score ----
+scoreColor = score >= 6 ? color.lime : score == 5 ? color.orange : score >= 3 ? color.yellow : color.red
+plot(score, "Council Score", color = scoreColor, style = plot.style_columns)
+bgcolor(score >= 6 ? color.new(color.green, 88) : na)
+
+// ---- signal table ----
+breakoutLevel = hh[1]
+if barstate.islast
+    t = table.new(position.top_right, 2, 9, border_width = 1)
+    table.cell(t, 0, 0, syminfo.ticker + "  (council #" + (rated ? rankStr : "-") + ")", text_color = color.white, bgcolor = color.new(color.black, 0), text_size = size.small)
+    table.cell(t, 1, 0, "SCORE " + str.tostring(score) + "/6", text_color = color.white, bgcolor = color.new(scoreColor, 30), text_size = size.small)
+    table.cell(t, 0, 1, "Fundamental tier", text_size = size.tiny)
+    table.cell(t, 1, 1, tierStr + " (" + str.tostring(fundBase) + "/2)", text_size = size.tiny, text_color = rated ? color.white : color.gray)
+    table.cell(t, 0, 2, "Uptrend (>50d,>200d)", text_size = size.tiny)
+    table.cell(t, 1, 2, sig_trend ? "ON" : "off", text_color = sig_trend ? color.lime : color.gray, text_size = size.tiny)
+    table.cell(t, 0, 3, "Near/at breakout", text_size = size.tiny)
+    table.cell(t, 1, 3, sig_break ? "ON" : "off", text_color = sig_break ? color.lime : color.gray, text_size = size.tiny)
+    table.cell(t, 0, 4, "Regime (QQQ up)", text_size = size.tiny)
+    table.cell(t, 1, 4, sig_regime ? "ON" : "off", text_color = sig_regime ? color.lime : color.gray, text_size = size.tiny)
+    table.cell(t, 0, 5, "Momentum (1mo+)", text_size = size.tiny)
+    table.cell(t, 1, 5, sig_mom ? "ON" : "off", text_color = sig_mom ? color.lime : color.gray, text_size = size.tiny)
+    table.cell(t, 0, 6, "Breakout level", text_size = size.tiny)
+    table.cell(t, 1, 6, str.tostring(breakoutLevel, format.mintick), text_size = size.tiny)
+    table.cell(t, 0, 7, "Flag", text_size = size.tiny)
+    flagTxt = tierStr == "CAUTION" ? "PRICED AHEAD — fade/verify" : tierStr == "TOP" ? "quality long" : tierStr == "not rated" ? "not in council" : tierStr
+    table.cell(t, 1, 7, flagTxt, text_color = tierStr == "CAUTION" ? color.red : color.white, text_size = size.tiny)
+    table.cell(t, 0, 8, "As of", text_size = size.tiny)
+    table.cell(t, 1, 8, "2026-06-14 (refresh!)", text_size = size.tiny, text_color = color.gray)
+
+// ---- alerts ----
+breakoutFresh = ta.crossover(close, hh[1])
+convBreak  = fundBase >= 1 and breakoutFresh and regimeOn           // trade signal (non-CAUTION only)
+topSetup   = fundBase == 2 and score >= 5                           // watch (top-tier aligning)
+dchg       = (close - close[1]) / close[1] * 100.0
+trip       = math.abs(dchg) >= trip_pct                             // thesis-event reaction proxy
+
+plotshape(convBreak, "Conviction breakout", shape.triangleup, location.bottom, color.lime, size = size.small)
+
+alertcondition(convBreak, "Council Conviction Breakout", "{{ticker}} council breakout — rated quality name broke its 20d high with Nasdaq in uptrend. Entry per setup guide Section E.")
+alertcondition(topSetup,  "Council Top-Tier Setup (score 5-6)", "{{ticker}} top-tier council name at score>=5 — watch for breakout.")
+alertcondition(trip,      "Council Thesis Tripwire", "{{ticker}} big daily move — likely an earnings/financing event landed. Re-check ai_tripwires.md before acting.")

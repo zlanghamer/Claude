@@ -1,0 +1,355 @@
+//@version=5
+indicator(title="AI Accumulation Scanner", shorttitle="AI Accum", overlay=false, max_lines_count=10, max_labels_count=5)
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║         AI / TECH INSTITUTIONAL ACCUMULATION SCANNER         ║
+// ║                     Pine Script v5                           ║
+// ╠══════════════════════════════════════════════════════════════╣
+// ║  WHAT THIS DOES:                                             ║
+// ║  Scores a stock 0-6 based on six signals that suggest        ║
+// ║  "stealth accumulation" — institutions quietly buying while  ║
+// ║  price is still consolidating.                               ║
+// ║                                                              ║
+// ║  Score 6 = all signals firing = SETUP IS FORMING.           ║
+// ║  Score 6 is NOT a buy signal. Wait for the breakout alert.  ║
+// ║                                                              ║
+// ║  TWO ALERTS ARE BUILT IN:                                    ║
+// ║  1. "Score Hit 6" — setup fully formed, start watching       ║
+// ║  2. "Breakout Trigger" — price crossed consolidation high    ║
+// ║                          with score ≥ 5. THIS is the entry   ║
+// ║     trigger (see setup guide for entry rules).               ║
+// ║                                                              ║
+// ║  TIP: Add TradingView's built-in "On Balance Volume"         ║
+// ║  indicator as a separate pane for visual OBV confirmation.   ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ─────────────────────────────────────────────────────────────
+// INPUTS — All adjustable via the gear icon (Settings)
+// ─────────────────────────────────────────────────────────────
+
+// OBV Settings
+// OBV (On-Balance Volume) adds today's volume when price closes
+// up, subtracts it when price closes down. A rising OBV while
+// price is flat = quiet buying pressure.
+i_obv_slope_len = input.int(20,  "OBV Slope Lookback (bars)",
+     group="1. OBV Settings",
+     minval=5, maxval=100,
+     tooltip="How many bars back to check if OBV is trending up. Default 20 ≈ 1 month of daily bars.")
+i_obv_sma_len   = input.int(50,  "OBV SMA Length",
+     group="1. OBV Settings",
+     minval=10, maxval=200,
+     tooltip="OBV must sit above this moving average for the signal to count. Default 50.")
+
+// Consolidation Settings
+i_range_len     = input.int(126, "6-Month Range Lookback (bars)",
+     group="2. Consolidation",
+     minval=20, maxval=252,
+     tooltip="Bars used to define the 6-month price range. 126 ≈ 6 months of daily bars.")
+i_consol_len    = input.int(20,  "Consolidation High Lookback (bars)",
+     group="2. Consolidation",
+     minval=5, maxval=60,
+     tooltip="Rolling high used as the breakout level. Default 20 ≈ 1 month. Alert fires when price closes above this.")
+
+// ATR Squeeze Settings
+// ATR (Average True Range) = how much the stock moves per day on
+// average. A shrinking ATR while OBV rises = institutions absorbing
+// supply quietly. When accumulation is done, ATR expands into breakout.
+i_atr_short     = input.int(20,   "ATR Short Length (recent vol)",
+     group="3. ATR Squeeze",
+     minval=5, maxval=60,
+     tooltip="Recent volatility window. Default 20.")
+i_atr_long      = input.int(60,   "ATR Long Length (baseline vol)",
+     group="3. ATR Squeeze",
+     minval=20, maxval=200,
+     tooltip="Baseline volatility window. Default 60.")
+i_atr_ratio     = input.float(0.75, "Squeeze Ratio (e.g. 0.75 = 75%)",
+     group="3. ATR Squeeze",
+     minval=0.10, maxval=0.99, step=0.05,
+     tooltip="Current ATR must be ≤ this fraction of the long ATR. Default 0.75 means volatility has contracted to 75% of normal.")
+
+// Trend Filter Settings
+// We only want accumulation setups in stocks with intact uptrends.
+// Price > 50 SMA > 200 SMA with the 50 still rising = trend healthy.
+i_fast_sma      = input.int(50,  "Fast SMA (uptrend check)",
+     group="4. Trend Filter",
+     minval=10, maxval=100,
+     tooltip="Price must be above this and this must be above the slow SMA. Default 50.")
+i_slow_sma      = input.int(200, "Slow SMA (uptrend check)",
+     group="4. Trend Filter",
+     minval=50, maxval=400,
+     tooltip="Price must be above this. If this SMA hasn't formed yet (newer tickers), this signal returns 0. Default 200.")
+
+// Liquidity Settings
+// Dollar volume = close × volume. Thin, low-volume stocks can be
+// manipulated easily and don't have real institutional participation.
+i_min_dv        = input.float(50.0, "Min 20-Day Avg Dollar Volume ($M)",
+     group="5. Liquidity Floor",
+     minval=1.0, maxval=500.0, step=5.0,
+     tooltip="20-day average of (price × volume) must reach this level. Default $50M filters out small/illiquid names.")
+
+// Regime Filter Settings
+// If the broad market is in a downtrend, don't take individual setups —
+// market headwinds will kill them. Default: QQQ must be above its 50 SMA
+// AND that SMA must itself be rising.
+i_regime_sym    = input.symbol("NASDAQ:QQQ", "Regime Symbol",
+     group="6. Regime Filter",
+     tooltip="The market index used to judge whether conditions are bullish. Default QQQ. Change to SPY if preferred.")
+i_regime_sma    = input.int(50, "Regime SMA Length",
+     group="6. Regime Filter",
+     minval=10, maxval=200,
+     tooltip="Regime symbol must be above this SMA AND the SMA must be rising. Default 50.")
+
+// Display Options
+i_show_bg       = input.bool(true,  "Shade Background Green at Score = 6",
+     group="7. Display",
+     tooltip="Fills the pane background green when all 6 signals are active.")
+i_show_rs       = input.bool(true,  "Show 60-Day RS vs Regime Symbol (label)",
+     group="7. Display",
+     tooltip="Adds relative strength vs QQQ to the signal table. Nice-to-have, not part of the score.")
+i_show_table    = input.bool(true,  "Show Signal Status Table",
+     group="7. Display",
+     tooltip="Displays which signals are on/off and the current consolidation high price in the top-right corner.")
+
+// ─────────────────────────────────────────────────────────────
+// SIGNAL 1 — OBV RISING
+// ─────────────────────────────────────────────────────────────
+// Two conditions must both be true:
+//   A) OBV now is higher than OBV 20 bars ago (slope positive)
+//   B) OBV is sitting above its own 50-bar moving average
+// Together these confirm sustained buying pressure, not just
+// a single day's blip.
+
+obv         = ta.obv
+obv_sma     = ta.sma(obv, i_obv_sma_len)
+obv_rising  = (obv > obv[i_obv_slope_len]) and (obv > obv_sma)
+
+// ─────────────────────────────────────────────────────────────
+// SIGNAL 2 — PRICE CONSOLIDATING
+// ─────────────────────────────────────────────────────────────
+// Price must be:
+//   A) In the upper third of its 6-month range (stock is strong,
+//      near the highs — not a random bounce from the lows)
+//   B) BUT not within 2% of the 6-month high (it hasn't broken
+//      out yet — still in the "quiet zone" before the move)
+
+range_high            = ta.highest(high, i_range_len)
+range_low             = ta.lowest(low,  i_range_len)
+upper_third_threshold = range_low + (range_high - range_low) * 0.667
+in_upper_third        = close >= upper_third_threshold
+not_at_new_high       = close < range_high * 0.98   // 2% buffer — still consolidating
+consolidating         = in_upper_third and not_at_new_high
+
+// ─────────────────────────────────────────────────────────────
+// SIGNAL 3 — VOLATILITY CONTRACTION (ATR SQUEEZE)
+// ─────────────────────────────────────────────────────────────
+// Current 20-day ATR must be ≤ 75% of the 60-day ATR.
+// Shrinking volatility + rising OBV is the core accumulation
+// signature. When the squeeze resolves (ATR expands), price
+// breaks out — that's the exit from the setup, not the entry.
+
+atr_short   = ta.atr(i_atr_short)
+atr_long    = ta.atr(i_atr_long)
+atr_squeeze = not na(atr_long) and atr_long > 0 and (atr_short <= atr_long * i_atr_ratio)
+
+// ─────────────────────────────────────────────────────────────
+// SIGNAL 4 — STRUCTURAL UPTREND
+// ─────────────────────────────────────────────────────────────
+// Three conditions:
+//   A) Price > 50 SMA (above medium-term trend)
+//   B) 50 SMA > 200 SMA (golden alignment, uptrend is intact)
+//   C) 50 SMA is rising (trend is accelerating, not flattening)
+// IMPORTANT: If the 200-day SMA hasn't formed yet (stock has
+// been listed < 200 trading days), this signal scores 0.
+// Don't chase newer listings without the full trend filter.
+
+sma_fast          = ta.sma(close, i_fast_sma)
+sma_slow          = ta.sma(close, i_slow_sma)
+sma_slow_valid    = not na(sma_slow)           // Guard for new tickers
+sma_fast_rising   = sma_fast > sma_fast[1]
+structural_uptrend = sma_slow_valid
+                    and (close > sma_fast)
+                    and (sma_fast > sma_slow)
+                    and sma_fast_rising
+
+// ─────────────────────────────────────────────────────────────
+// SIGNAL 5 — LIQUIDITY FLOOR
+// ─────────────────────────────────────────────────────────────
+// 20-day average of (daily close × daily volume) must reach
+// at least $50M. This filters out:
+//   - Small/micro-cap stocks that move on low volume
+//   - Names where a single large order can fake the OBV signal
+//   - Anything without meaningful institutional participation
+
+dollar_volume     = close * volume
+avg_dv_20         = ta.sma(dollar_volume, 20)
+min_dv_dollars    = i_min_dv * 1_000_000
+liquid            = avg_dv_20 >= min_dv_dollars
+
+// ─────────────────────────────────────────────────────────────
+// SIGNAL 6 — REGIME FILTER
+// ─────────────────────────────────────────────────────────────
+// Pull QQQ's close and 50-day SMA via request.security().
+// BOTH must be true:
+//   A) QQQ is above its 50-day SMA (market is in uptrend mode)
+//   B) The 50-day SMA itself is rising (trend is strengthening)
+// If QQQ is below its 50 SMA, new breakout trades face market
+// headwinds and will underperform. Stand down or reduce size.
+// Note: This filter will whipsaw at inflection points — that's
+// a documented limitation. A crude binary is still better than
+// no filter at all.
+
+[qqq_close, qqq_sma] = request.security(
+     i_regime_sym,
+     timeframe.period,
+     [close, ta.sma(close, i_regime_sma)],
+     lookahead=barmerge.lookahead_off)
+
+regime_ok = not na(qqq_sma)
+          and (qqq_close > qqq_sma)
+          and (qqq_sma > qqq_sma[1])
+
+// ─────────────────────────────────────────────────────────────
+// COMPOSITE SCORE (0-6)
+// ─────────────────────────────────────────────────────────────
+// One point per signal. The color tells you where you are:
+//   Red (0-2)    = Ignore. Multiple signals missing.
+//   Yellow (3-4) = Setup forming. Keep on radar.
+//   Orange (5)   = One signal away. Worth close attention.
+//   Green (6)    = All signals firing. Watch for breakout alert.
+
+score = (obv_rising         ? 1 : 0)
+      + (consolidating      ? 1 : 0)
+      + (atr_squeeze        ? 1 : 0)
+      + (structural_uptrend ? 1 : 0)
+      + (liquid             ? 1 : 0)
+      + (regime_ok          ? 1 : 0)
+
+score_color = score == 6 ? color.new(color.green,  0) :
+              score == 5 ? color.new(color.orange,  0) :
+              score >= 3 ? color.new(color.yellow,  0) :
+                           color.new(color.red,     0)
+
+// ─────────────────────────────────────────────────────────────
+// SECONDARY CONFIRMATION — Relative Strength vs QQQ
+// ─────────────────────────────────────────────────────────────
+// Not part of the score. Nice-to-have: is this stock
+// outperforming QQQ over the past 60 trading days?
+// Strong RS + score 6 = higher conviction setup.
+
+stock_return_60 = not na(close[60]) ? (close - close[60]) / close[60] : na
+qqq_return_60   = not na(qqq_close[60]) ? (qqq_close - qqq_close[60]) / qqq_close[60] : na
+rs_positive     = not na(stock_return_60) and not na(qqq_return_60)
+                 and stock_return_60 > qqq_return_60
+
+// ─────────────────────────────────────────────────────────────
+// CONSOLIDATION HIGH — Breakout Level
+// ─────────────────────────────────────────────────────────────
+// Rolling 20-bar high, excluding the current bar (hence [1]).
+// This is the resistance price to watch. A CLOSE above this
+// with score ≥ 5 fires the breakout trigger alert.
+// The current value is shown in the signal status table.
+// TIP: To draw this as a line ON the price chart, open Pine
+// Editor, create a new indicator with overlay=true, and paste:
+//   plot(ta.highest(high[1], 20), color=color.red, linewidth=1)
+//   //@version=5
+//   indicator("Consol High", overlay=true)
+
+consol_high = ta.highest(high[1], i_consol_len)
+
+// Normalize the consolidation high into the score pane (0-6 scale)
+// so you get a visual sense of where price sits relative to it.
+// This is purely cosmetic — the alert uses the actual price.
+price_pos_vs_consol = not na(consol_high) and consol_high > 0
+     ? math.min(6.0, math.max(0.0, (close / consol_high) * 6.0 - 0.2))
+     : na
+
+// ─────────────────────────────────────────────────────────────
+// ALERTS (use barstate.isconfirmed to prevent intra-bar noise)
+// ─────────────────────────────────────────────────────────────
+
+// Alert 1: Score FIRST reaches 6 (transitions from <6 to 6).
+// This is the "put it on your watch list" alert.
+// DO NOT BUY on this alert alone. Wait for Alert 2.
+score_hits_6 = score == 6 and score[1] < 6
+alertcondition(score_hits_6 and barstate.isconfirmed,
+     title="[AI Accum] Score Reached 6 — Entry Watch",
+     message="{{ticker}} on {{interval}} — Score hit 6. All accumulation signals firing. Add to watch list. Do NOT buy here — wait for the breakout trigger alert.")
+
+// Alert 2: Price CLOSES above the 20-bar consolidation high with
+// score still ≥ 5. This is the breakout trigger — the actual
+// entry signal per the execution rules in the setup guide.
+breakout = ta.crossover(close, consol_high) and score >= 5
+alertcondition(breakout and barstate.isconfirmed,
+     title="[AI Accum] Breakout Trigger — Score ≥ 5",
+     message="{{ticker}} on {{interval}} — Closed above 20-bar consolidation high with accumulation score ≥ 5. Breakout trigger. Check volume and chart structure before entering.")
+
+// ─────────────────────────────────────────────────────────────
+// PLOTTING — SCORE COLUMNS
+// ─────────────────────────────────────────────────────────────
+
+plot(score, "Accumulation Score", style=plot.style_columns,
+     color=score_color, linewidth=2)
+
+// Price position vs consolidation high (thin line, secondary context)
+plot(price_pos_vs_consol, "Price vs Consol High (normalized)",
+     color=color.new(color.silver, 40), linewidth=1,
+     style=plot.style_line)
+
+// Reference lines
+hline(6, "Max Score (6)",    color=color.new(color.green,  30), linestyle=hline.style_dashed, linewidth=1)
+hline(5, "Score 5 (Watch)",  color=color.new(color.orange, 30), linestyle=hline.style_dashed, linewidth=1)
+hline(3, "Score 3 (Forming)",color=color.new(color.gray,   50), linestyle=hline.style_dotted, linewidth=1)
+
+// Green background when all 6 signals firing
+bgcolor(i_show_bg and score == 6 ? color.new(color.green, 88) : na,
+     title="Score 6 Background")
+
+// ─────────────────────────────────────────────────────────────
+// SIGNAL STATUS TABLE (top-right corner of the pane)
+// Shows which signals are on/off and the current breakout level.
+// ─────────────────────────────────────────────────────────────
+
+if i_show_table and barstate.islast
+    var table t = table.new(position.top_right, 2, 9,
+         bgcolor=color.new(color.black, 70),
+         border_color=color.new(color.gray, 50),
+         border_width=1, frame_color=color.new(color.gray,50), frame_width=1)
+
+    // Header
+    table.cell(t, 0, 0, "Signal",         text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 40))
+    table.cell(t, 1, 0, "Status",         text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 40))
+
+    // Each signal row
+    on_col  = color.new(color.green,  20)
+    off_col = color.new(color.red,    20)
+    na_col  = color.new(color.gray,   40)
+
+    table.cell(t, 0, 1, "OBV Rising",      text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 1, obv_rising         ? "✓ YES" : "✗ NO", text_color=color.white, text_size=size.small, bgcolor=obv_rising ? on_col : off_col)
+
+    table.cell(t, 0, 2, "Consolidating",   text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 2, consolidating      ? "✓ YES" : "✗ NO", text_color=color.white, text_size=size.small, bgcolor=consolidating ? on_col : off_col)
+
+    table.cell(t, 0, 3, "ATR Squeeze",     text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 3, atr_squeeze        ? "✓ YES" : "✗ NO", text_color=color.white, text_size=size.small, bgcolor=atr_squeeze ? on_col : off_col)
+
+    table.cell(t, 0, 4, "Uptrend",         text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 4, structural_uptrend ? "✓ YES" : "✗ NO", text_color=color.white, text_size=size.small, bgcolor=structural_uptrend ? on_col : off_col)
+
+    table.cell(t, 0, 5, "Liquid (≥$50M)",  text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 5, liquid             ? "✓ YES" : "✗ NO", text_color=color.white, text_size=size.small, bgcolor=liquid ? on_col : off_col)
+
+    table.cell(t, 0, 6, "Regime OK (QQQ)", text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 6, regime_ok          ? "✓ YES" : "✗ NO", text_color=color.white, text_size=size.small, bgcolor=regime_ok ? on_col : off_col)
+
+    // RS confirmation (secondary, grey background)
+    if i_show_rs
+        table.cell(t, 0, 7, "RS vs QQQ (60d)", text_color=color.silver, text_size=size.small)
+        table.cell(t, 1, 7, rs_positive ? "↑ Outperform" : "↓ Underperform",
+             text_color=color.white, text_size=size.small,
+             bgcolor=rs_positive ? color.new(color.teal, 40) : na_col)
+
+    // Consolidation high price level
+    consol_str = not na(consol_high) ? str.tostring(consol_high, "#.##") : "N/A"
+    table.cell(t, 0, 8, "Breakout Level",  text_color=color.yellow, text_size=size.small)
+    table.cell(t, 1, 8, "$" + consol_str,  text_color=color.yellow, text_size=size.small, bgcolor=color.new(color.navy, 30))
